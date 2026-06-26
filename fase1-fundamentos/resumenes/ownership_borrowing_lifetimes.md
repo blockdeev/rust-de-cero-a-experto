@@ -125,28 +125,8 @@ un puntero colgante (*dangling pointer*).
 
 ### Diagrama visual
 
-```
-Caso válido
-┌─────────────────────────────────────────────────────┐
-│  s   (String, dueño del valor)                      │
-│                                                     │
-│       ┌──────────────────┐                          │
-│       │  r = &s          │                          │
-│       │  (vive adentro)  │                          │
-│       └──────────────────┘                          │
-└─────────────────────────────────────────────────────┘
-  'a (vida de r) cabe dentro de la vida de s → compila bien ✅
+ ![Diagrama de lifetimes](../../assets/lifetimes_diagram.png)
 
-
-Caso inválido (dangling reference)
-┌──────────────────┐
-│  s (scope chico) │  ← s se destruye acá
-└──────────────────┘
-┌────────────────────────────────────────────────────────┐
-│  r = &s  (intenta seguir viva después de que s murió)  │
-└────────────────────────────────────────────────────────┘
-  r sigue apuntando a memoria liberada → error de compilación ❌
-```
 
 ### ¿Cuándo necesitás anotar `'a` explícitamente?
 
