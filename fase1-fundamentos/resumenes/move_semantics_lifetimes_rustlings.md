@@ -1,7 +1,7 @@
 # 🦀 Move Semantics & Lifetimes — Ejercicios Rustlings
 
 > **Ejercicios oficiales de Rustlings resueltos y explicados** — sección `06_move_semantics`
-> (6 ejercicios) y `16_lifetimes` (3 ejercicios), con las ideas clave que surgen de cada uno.
+> (5 ejercicios) y `16_lifetimes` (3 ejercicios), con las ideas clave que surgen de cada uno.
 
 ---
 
@@ -78,30 +78,55 @@ let s2 = s1;
 
 ### move_semantics1 — Mutabilidad básica
 
-**El error:**
-
-```
-cannot borrow `vec` as mutable, as it is not declared as mutable
-help: consider changing this to be mutable
-  |
-  |     let mut vec = vec;
-```
-
-**Código original:**
+**Código original de Rustlings:**
 
 ```rust
+// TODO: Fix the compiler error in this function.
+
 fn fill_vec(vec: Vec<i32>) -> Vec<i32> {
-    vec.push(88); // ❌ vec no es mutable
+    let vec = vec;
+    vec.push(88);
     vec
 }
+
+fn main() {
+    // You can optionally experiment here.
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn move_semantics1() {
+        let vec0 = vec![22, 44, 66];
+        let vec1 = fill_vec(vec0);
+        assert_eq!(vec1, vec![22, 44, 66, 88]);
+    }
+}
+```
+
+**Error del compilador:**
+
+```
+error[E0596]: cannot borrow `vec` as mutable, as it is not declared as mutable
+ --> src/main.rs:4:5
+  |
+4 |     vec.push(88);
+  |     ^^^ cannot borrow as mutable
+  |
+help: consider changing this to be mutable
+  |
+3 |     let mut vec = vec;
+  |         +++
 ```
 
 **Solución:**
 
 ```rust
 fn fill_vec(vec: Vec<i32>) -> Vec<i32> {
-    let mut vec = vec; // declaramos vec como mutable dentro de la función
-    vec.push(88);      // ✅ ahora sí podemos modificarlo
+    let mut vec = vec; // ← agregar mut
+    vec.push(88);
     vec
 }
 ```
@@ -115,35 +140,62 @@ propiedad pasa a la función — y para modificarlo adentro necesita ser `mut`.
 
 ### move_semantics2 — Dos vectores independientes
 
-**El error:**
+**Código original de Rustlings:**
+
+```rust
+// TODO: Fix the compiler error by finding a way to make this work
+// without changing the `vec` parameter type in `fill_vec`.
+
+fn fill_vec(vec: Vec<i32>) -> Vec<i32> {
+    let mut vec = vec;
+    vec.push(88);
+    vec
+}
+
+fn main() {
+    // You can optionally experiment here.
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn move_semantics2() {
+        let vec0 = vec![22, 44, 66];
+        let vec1 = fill_vec(vec0);
+        // vec0 can't be accessed anymore because it is moved to fill_vec.
+        assert_eq!(vec1, vec![22, 44, 66, 88]);
+    }
+}
+```
+
+**Error del compilador:**
 
 ```
 error[E0382]: borrow of moved value: `vec0`
-  --> ...
-23 |         let vec1 = fill_vec(vec0);
-   |                             ---- value moved here
-25 |         assert_eq!(vec0, [22, 44, 66]); ← value borrowed here after move
-```
-
-**El test quiere:**
-
-```rust
-assert_eq!(vec0, [22, 44, 66]);      // vec0 sin modificar
-assert_eq!(vec1, [22, 44, 66, 88]); // vec1 con el 88 agregado
+  |
+  | let vec0 = vec![22, 44, 66];
+  |     ---- move occurs because `vec0` has type `Vec<i32>`,
+  |          which does not implement the `Copy` trait
+  | let vec1 = fill_vec(vec0);
+  |                      ---- value moved here
+  | assert_eq!(vec0, [22, 44, 66]);
+  |            ^^^^ value borrowed here after move
 ```
 
 **Solución:**
 
 ```rust
-let vec1 = fill_vec(vec0.clone()); // clonamos vec0 → dos vectores independientes
+let vec1 = fill_vec(vec0.clone()); // ← clonar vec0 antes de moverlo
 ```
 
 **¿Por qué `.clone()` y no una referencia?**
 
-Con una referencia, `fill_vec` no podría devolver un `Vec<i32>` nuevo — estaría modificando
-el mismo vector. Terminarías con un solo vector modificado, no dos independientes con
-contenidos distintos. `.clone()` crea una copia completa en el heap — `vec0` queda intacto
-con `[22, 44, 66]` y `vec1` recibe `[22, 44, 66, 88]`.
+El test quiere que `vec0` siga existiendo con `[22, 44, 66]` y `vec1` sea `[22, 44, 66, 88]`
+— dos vectores independientes. Con una referencia la función no podría devolver un `Vec<i32>`
+nuevo. Con `.clone()` se crea una copia completa en el heap: `vec0` queda intacto y la
+función trabaja sobre la copia.
 
 > ⚠️ `.clone()` es explícito a propósito — Rust nunca copia memoria del heap silenciosamente.
 > Usalo cuando realmente necesitás dos copias independientes, no como solución por defecto.
@@ -152,19 +204,49 @@ con `[22, 44, 66]` y `vec1` recibe `[22, 44, 66, 88]`.
 
 ### move_semantics3 — Mutabilidad en la firma
 
-**El error:**
+**Código original de Rustlings:**
+
+```rust
+// TODO: Fix the compiler error by only changing the `fill_vec` function
+// signature (the function's input and output types and lifetimes).
+
+fn fill_vec(vec: Vec<i32>) -> Vec<i32> {
+    vec.push(88);
+    vec
+}
+
+fn main() {
+    // You can optionally experiment here.
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn move_semantics3() {
+        let vec0 = vec![22, 44, 66];
+        let vec1 = fill_vec(vec0);
+        assert_eq!(vec1, vec![22, 44, 66, 88]);
+    }
+}
+```
+
+**Error del compilador:**
 
 ```
-cannot borrow `vec` as mutable, as it is not declared as mutable
-help: consider changing this to be mutable
+error[E0596]: cannot borrow `vec` as mutable, as it is not declared as mutable
   |
-  | fn fill_vec(mut vec: Vec<i32>) -> Vec<i32>
+  | fn fill_vec(vec: Vec<i32>) -> Vec<i32> {
+  |             --- help: consider changing this to be mutable: `mut vec`
+  |     vec.push(88);
+  |     ^^^ cannot borrow as mutable
 ```
 
 **Solución:**
 
 ```rust
-fn fill_vec(mut vec: Vec<i32>) -> Vec<i32> { // mut directamente en la firma
+fn fill_vec(mut vec: Vec<i32>) -> Vec<i32> { // ← mut directamente en la firma
     vec.push(88);
     vec
 }
@@ -173,29 +255,23 @@ fn fill_vec(mut vec: Vec<i32>) -> Vec<i32> { // mut directamente en la firma
 **Diferencia con move_semantics1:**
 
 En el ejercicio 1 se hacía `let mut vec = vec` adentro del cuerpo. Acá el `mut` va
-directamente en el parámetro de la firma — es equivalente pero más conciso.
+directamente en el parámetro de la firma — es equivalente pero más conciso. El enunciado
+especifica que solo se puede cambiar la firma, por eso la solución es diferente.
 
-**¿Y vec0 en el test?**
+**¿Y `vec0` en el test?**
 
 No necesita `mut` porque el test no lo modifica directamente. `vec0` se mueve a la función
 y deja de existir — la memoria se libera cuando `fill_vec` termina, antes del final de `main`.
-
-```rust
-fn main() {
-    let vec0 = vec![22, 44, 66];
-    let vec1 = fill_vec(vec0);  // vec0 se mueve acá
-                                // fill_vec termina → vec0 muere
-    assert_eq!(vec1, [22, 44, 66, 88]); // solo verificamos vec1
-}
-```
 
 ---
 
 ### move_semantics4 — Non-Lexical Lifetimes (NLL)
 
-**El ejercicio:**
+**Código original de Rustlings:**
 
 ```rust
+// TODO: Fix the compiler errors in the function without adding any new line.
+
 fn move_semantics4() {
     let mut x = Vec::new();
     let y = &mut x;
@@ -204,9 +280,23 @@ fn move_semantics4() {
     z.push(13);
     assert_eq!(x, [42, 13]);
 }
+
+fn main() {
+    // You can optionally experiment here.
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn move_semantics4() {
+        move_semantics4();
+    }
+}
 ```
 
-**¿Por qué compila?**
+**¿Por qué compila sin cambios?**
 
 En Rust moderno (NLL — Non-Lexical Lifetimes), una referencia **muere en su último punto
 de uso**, no al cerrar el scope. Por eso esto es válido:
@@ -223,41 +313,58 @@ Sin NLL (Rust antiguo), `y` hubiera vivido hasta el `}` del bloque y hubiera gen
 conflicto con `z`. NLL hace al compilador más inteligente — razona sobre flujo real de uso,
 no sobre límites de scope léxico.
 
+> 💡 Este ejercicio no requiere cambios — el objetivo es entender **por qué** compila.
+
 ---
 
 ### move_semantics5 — Cuándo tomar ownership y cuándo no
 
-**El error:**
-
-```
-error[E0308]: mismatched types
-  | data = data.to_uppercase();
-  |        ^^^^^^^^^^^^^^^^^^^ expected &String, found String
-
-error[E0382]: borrow of moved value: `data`
-  | get_char(data);       ← value moved here
-  | string_uppercase(&data); ← value borrowed here after move
-```
-
-**Código original (con los comentarios del ejercicio):**
+**Código original de Rustlings:**
 
 ```rust
+#![allow(clippy::ptr_arg)]
+
+// TODO: Fix the compiler errors without changing anything except adding or
+// removing references (the character `&`).
+
 // Shouldn't take ownership
-fn get_char(data: String) -> char {   // ❌ toma ownership — MAL
+fn get_char(data: String) -> char {
     data.chars().last().unwrap()
 }
 
 // Should take ownership
-fn string_uppercase(mut data: &String) { // ❌ recibe referencia — MAL
+fn string_uppercase(mut data: &String) {
     data = data.to_uppercase();
     println!("{data}");
 }
 
 fn main() {
     let data = "Rust is great!".to_string();
-    get_char(data);          // data se mueve acá
-    string_uppercase(&data); // ❌ data ya no existe
+
+    get_char(data);
+
+    string_uppercase(&data);
 }
+```
+
+**Error del compilador:**
+
+```
+error[E0308]: mismatched types
+   |
+   | fn string_uppercase(mut data: &String) {
+   |                               ------- expected due to this parameter type
+   |     data = data.to_uppercase();
+   |            ^^^^^^^^^^^^^^^^^^^ expected `&String`, found `String`
+
+error[E0382]: borrow of moved value: `data`
+   |
+   | let data = "Rust is great!".to_string();
+   |     ---- move occurs because `data` has type `String`
+   | get_char(data);
+   |           ---- value moved here
+   | string_uppercase(&data);
+   |                  ^^^^^ value borrowed here after move
 ```
 
 **Solución:**
@@ -298,66 +405,57 @@ ownership.
 
 ---
 
-### move_semantics6 — Structs que guardan referencias
-
-**El error:**
-
-```
-error[E0106]: missing lifetime specifier
-  | author: &str,   ← expected named lifetime parameter
-  | title: &str,    ← expected named lifetime parameter
-```
-
-**Código original:**
-
-```rust
-struct Book {
-    author: &str, // ❌ el compilador no sabe cuánto vive esta referencia
-    title: &str,
-}
-```
-
-**Solución:**
-
-```rust
-struct Book<'a> {
-    author: &'a str, // ✅ declaramos que Book no puede vivir más que sus referencias
-    title: &'a str,
-}
-```
-
-**¿Qué significa `<'a>` en el struct?**
-
-Los `<>` son para declarar parámetros genéricos. Igual que podés declarar un tipo genérico
-`<T>`, acá declarás un lifetime genérico `<'a>` — primero lo declarás, después lo usás.
-
-El compilador necesita saber cuánto tiempo van a vivir `author` y `title`. Sin `'a` no tiene
-forma de verificar que `Book` no sobreviva a los `String` a los que apunta. Con `'a` le decís:
-**"este struct vive lo que vivan las referencias que contiene"** — igual que la referencia más corta.
-
----
-
 ## ⏳ Lifetimes — ejercicios
 
 ### lifetimes1 — Función que devuelve una de dos referencias
 
-**El error:**
+**Código original de Rustlings:**
+
+```rust
+// The Rust compiler needs to know how to check whether supplied references are
+// valid, so that it can let the programmer know if a reference is at risk of
+// going out of scope before it is used. Remember, references are borrows and do
+// not own their own data. What if their owner goes out of scope?
+
+// TODO: Fix the compiler error by updating the function signature.
+
+fn longest(x: &str, y: &str) -> &str {
+    if x.len() > y.len() {
+        x
+    } else {
+        y
+    }
+}
+
+fn main() {
+    // You can optionally experiment here.
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_longest() {
+        assert_eq!(longest("abcd", "123"), "abcd");
+        assert_eq!(longest("abc", "1234"), "1234");
+    }
+}
+```
+
+**Error del compilador:**
 
 ```
 error[E0106]: missing lifetime specifier
-  | fn longest(x: &str, y: &str) -> &str
+  |
+  | fn longest(x: &str, y: &str) -> &str {
   |               ----     ----     ^ expected named lifetime parameter
   |
   = help: this function's return type contains a borrowed value,
-    but the signature does not say whether it is borrowed from x or y
-```
-
-**Código original:**
-
-```rust
-fn longest(x: &str, y: &str) -> &str {
-    if x.len() > y.len() { x } else { y }
-}
+    but the signature does not say whether it is borrowed from `x` or `y`
+help: consider introducing a named lifetime parameter
+  |
+  | fn longest<'a>(x: &'a str, y: &'a str) -> &'a str {
 ```
 
 **Solución:**
@@ -371,29 +469,57 @@ fn longest<'a>(x: &'a str, y: &'a str) -> &'a str {
 **¿Por qué es necesario `'a` acá?**
 
 El compilador no puede saber en tiempo de compilación si va a devolver `x` o `y` — eso
-depende del runtime. Y `x` e `y` pueden venir de variables con vidas completamente distintas.
-Sin `'a` el compilador está ciego — no sabe cuánto tiempo es válido el resultado.
+depende del runtime. Sin `'a` no sabe cuánto tiempo es válido el resultado.
 
 Con `'a` le firmás un contrato: **"el resultado vive exactamente lo que viva la más corta
 de las dos referencias que recibo"**. Ahora puede rastrear el resultado y verificar que no
 lo uses después de que alguna de las dos muera.
 
+Los `<>` en `longest<'a>` son donde se **declaran** los parámetros genéricos — igual que
+`<T>` para tipos, `<'a>` para lifetimes. Primero declarás, después usás.
+
 ---
 
 ### lifetimes2 — El problema del scope
 
-**Código original (no compila):**
+**Código original de Rustlings:**
 
 ```rust
+// TODO: Fix the compiler error by moving one line.
+
+fn longest<'a>(x: &'a str, y: &'a str) -> &'a str {
+    if x.len() > y.len() {
+        x
+    } else {
+        y
+    }
+}
+
 fn main() {
     let string1 = String::from("long string is long");
     let result;
     {
         let string2 = String::from("xyz");
-        result = longest(&string1, &string2);
-    }                           // string2 muere acá
-    println!("'{result}'");     // ❌ result podría apuntar a string2 muerta
+        result = longest(string1.as_str(), string2.as_str());
+    }
+    println!("The longest string is '{result}'");
 }
+```
+
+**Error del compilador:**
+
+```
+error[E0597]: `string2` does not live long enough
+   |
+   |         let string2 = String::from("xyz");
+   |             ------- binding `string2` declared here
+   |         result = longest(string1.as_str(), string2.as_str());
+   |                                            ^^^^^^^^^^^^^^^^^ borrowed value
+   |                                                              does not live long enough
+   |     }
+   |     - `string2` dropped here while still borrowed
+   |     println!("The longest string is '{result}'");
+   |              ----------------------------------- borrow later used here
 ```
 
 **Solución — mover el `println!` adentro del scope:**
@@ -404,8 +530,8 @@ fn main() {
     let result;
     {
         let string2 = String::from("xyz");
-        result = longest(&string1, &string2);
-        println!("'{result}'"); // ✅ result se usa antes de que string2 muera
+        result = longest(string1.as_str(), string2.as_str());
+        println!("The longest string is '{result}'"); // ✅ antes de que string2 muera
     }
 }
 ```
@@ -420,21 +546,36 @@ válido dentro de ese scope — usarlo afuera es usar una referencia a memoria y
 
 ### lifetimes3 — Lifetimes en structs
 
-**El error:**
+**Código original de Rustlings:**
+
+```rust
+// Lifetimes are also needed when structs hold references.
+// TODO: Fix the compiler errors about the struct.
+
+struct Book {
+    author: &str,
+    title: &str,
+}
+
+fn main() {
+    let book = Book {
+        author: "George Orwell",
+        title: "1984",
+    };
+    println!("{} by {}", book.title, book.author);
+}
+```
+
+**Error del compilador:**
 
 ```
 error[E0106]: missing lifetime specifier
-  | author: &str,
-  | title: &str,
-```
-
-**Código original:**
-
-```rust
-struct Book {
-    author: &str, // ❌
-    title: &str,
-}
+  |
+  | struct Book {
+  |     author: &str,
+  |             ^ expected named lifetime parameter
+  |     title: &str,
+  |            ^ expected named lifetime parameter
 ```
 
 **Solución:**
@@ -454,10 +595,13 @@ fn main() {
 }
 ```
 
-**Regla general:**
+**¿Qué significa `<'a>` en el struct?**
 
 Cuando un struct guarda referencias adentro, **siempre necesita lifetime annotations**.
-El compilador necesita garantizar que el struct no sobreviva a los datos que referencia.
+El compilador necesita saber cuánto tiempo van a vivir `author` y `title` para garantizar
+que el struct no sobreviva a los datos que referencia.
+
+Con `'a` le decís: **"este struct vive lo que vivan las referencias que contiene"**.
 
 ---
 
